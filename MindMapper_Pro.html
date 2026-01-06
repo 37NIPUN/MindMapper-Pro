@@ -924,13 +924,15 @@
 
       const generateId = () => Math.random().toString(36).substr(2, 9);
 
-      // --- SUB-COMPONENT: Auto Resizing Textarea (Simple Highlighting for Editing) ---
+      // --- SUB-COMPONENT: Auto Resizing Textarea (Updated for Cursor Tracking) ---
       const AutoTextarea = ({
+        id, // <--- NEW PROP
         value,
         onChange,
         onKeyDown,
         onBlur,
         onPaste,
+        onCursorTrack, // <--- NEW PROP
         searchQuery,
         isActiveMatch,
         placeholder,
@@ -981,11 +983,8 @@
               return (
                 <mark
                   key={i}
-                  // SIMPLE YELLOW: Removed shadows, bold, and scaling
                   className={`rounded-sm transition-colors ${
-                    isActiveMatch
-                      ? "bg-yellow-400" // Slightly darker yellow for current match
-                      : "bg-yellow-100" // Light yellow for other matches
+                    isActiveMatch ? "bg-yellow-400" : "bg-yellow-100"
                   }`}
                   style={{ color: "transparent" }}
                 >
@@ -999,7 +998,7 @@
 
         return (
           <div className="relative w-full h-full">
-            {/* BACKDROP: Just the highlights */}
+            {/* BACKDROP */}
             <div
               ref={backdropRef}
               aria-hidden="true"
@@ -1014,14 +1013,19 @@
               {renderBackdrop()}
             </div>
 
-            {/* MAIN TEXTAREA: Clean typing layer */}
+            {/* MAIN TEXTAREA */}
             <textarea
+              id={id} // <--- Pass ID to DOM
               ref={textareaRef}
               value={value}
               onChange={onChange}
               onKeyDown={onKeyDown}
               onBlur={onBlur}
               onPaste={onPaste}
+              // NEW: Track cursor on click or selection change
+              onSelect={(e) =>
+                onCursorTrack && onCursorTrack(e.target.selectionStart)
+              }
               placeholder={placeholder}
               className={`${className} relative z-10 bg-transparent`}
               style={{
@@ -2344,7 +2348,7 @@
         );
       };
 
-      // --- SUB-COMPONENT: Note Content Manager (With Edit Highlighting Support) ---
+      // --- SUB-COMPONENT: Note Content Manager (Updated for Line Tracking) ---
       const NoteContentManager = ({
         note,
         isExport,
@@ -2352,6 +2356,7 @@
         searchQuery,
         onUpdate,
         isHighlighted,
+        onCursorTrack, // Received from parent
       }) => {
         const effectiveBlocks = useMemo(() => {
           if (note.blocks && note.blocks.length > 0) return note.blocks;
@@ -2450,49 +2455,34 @@
           } catch (err) {}
         };
 
-        // UPDATED: handleKeyDown with Sub-Bullet Indentation Support
+        // handleKeyDown (Bold, Tab, Enter logic remains same)
         const handleKeyDown = (e, blockId, currentText) => {
           const textarea = e.target;
-
-          // 1. Bold Logic (Ctrl+B)
           if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
             e.preventDefault();
             const start = textarea.selectionStart;
             const end = textarea.selectionEnd;
             const selection = currentText.substring(start, end);
-
-            // Calculate new cursor position
             const newCursorPos = end + 4;
-
-            let newContent;
-            if (!selection) {
-              newContent = `${currentText.substring(
-                0,
-                start
-              )}****${currentText.substring(end)}`;
-            } else {
-              newContent = `${currentText.substring(
-                0,
-                start
-              )}**${selection}**${currentText.substring(end)}`;
-            }
-
+            let newContent = !selection
+              ? `${currentText.substring(0, start)}****${currentText.substring(
+                  end
+                )}`
+              : `${currentText.substring(
+                  0,
+                  start
+                )}**${selection}**${currentText.substring(end)}`;
             handleBlockUpdate(blockId, { content: newContent });
-
             setTimeout(() => {
               textarea.selectionStart = textarea.selectionEnd = selection
                 ? newCursorPos
                 : start + 2;
             }, 0);
           }
-
-          // 2. NEW: Tab Logic (Indent Line or Insert Spaces)
           if (e.key === "Tab") {
             e.preventDefault();
             const start = textarea.selectionStart;
             const end = textarea.selectionEnd;
-
-            // Get current line details
             const currentLineStart =
               currentText.lastIndexOf("\n", start - 1) + 1;
             const currentLineEnd = currentText.indexOf("\n", start);
@@ -2502,50 +2492,34 @@
               currentLineStart,
               lineEndIndex
             );
-
-            // Check if it's a bullet line (or starts with - or *)
-            // We allow existing whitespace at the start for checking
             if (/^\s*(\*|-)\s/.test(currentLine)) {
-              // CASE A: It is a bullet line -> Indent the WHOLE line (Sub-bullet)
-              // Insert 2 spaces at the very start of the line
               const newText =
                 currentText.substring(0, currentLineStart) +
                 "  " +
                 currentText.substring(currentLineStart);
-
               handleBlockUpdate(blockId, { content: newText });
-
-              // Move cursor +2 to stay relative to text position
               setTimeout(() => {
                 textarea.selectionStart = start + 2;
                 textarea.selectionEnd = end + 2;
               }, 0);
             } else {
-              // CASE B: Normal Text -> Insert 4 spaces at cursor (Standard Tab)
               const newText =
                 currentText.substring(0, start) +
                 "    " +
                 currentText.substring(end);
-
               handleBlockUpdate(blockId, { content: newText });
-
               setTimeout(() => {
                 textarea.selectionStart = textarea.selectionEnd = start + 4;
               }, 0);
             }
           }
-
-          // 3. Enter Logic (Continue Bullet Points)
           if (e.key === "Enter" && !e.shiftKey) {
             const start = textarea.selectionStart;
             const beforeCursor = currentText.substring(0, start);
             const currentLine = beforeCursor.split("\n").pop();
-            // Match bullet with optional indentation
             const bulletMatch = currentLine.match(/^(\s*)(\*|-)\s/);
-
             if (bulletMatch) {
               e.preventDefault();
-              // bulletMatch[0] contains "  - " or "- "
               handleBlockUpdate(blockId, {
                 content: `${beforeCursor}\n${
                   bulletMatch[0]
@@ -2625,6 +2599,7 @@
                   {!isExport && !isReadingMode ? (
                     <div className="relative min-h-[1.6em]">
                       <AutoTextarea
+                        id={`block-input-${block.id}`}
                         value={block.content}
                         onChange={(e) =>
                           handleTextChange(block.id, e.target.value)
@@ -2633,6 +2608,16 @@
                           handleKeyDown(e, block.id, block.content)
                         }
                         onPaste={(e) => handlePaste(e, block.id)}
+                        // NEW: Calculate LINE NUMBER (Pseudo-ID) and pass it up
+                        onCursorTrack={(pos) => {
+                          if (onCursorTrack) {
+                            const val = block.content || "";
+                            // Count newlines before cursor to get 0-based line index
+                            const lineNum =
+                              val.substr(0, pos).split("\n").length - 1;
+                            onCursorTrack(note.id, block.id, pos, lineNum);
+                          }
+                        }}
                         searchQuery={searchQuery}
                         isActiveMatch={isHighlighted}
                         className="w-full bg-transparent border-none focus:outline-none resize-none font-sans text-sm p-0 m-0"
@@ -2672,7 +2657,7 @@
         );
       };
 
-      // --- UPDATED: NOTES RENDERER (Passes Highlight State) ---
+      // --- UPDATED: NOTES RENDERER (Passes Highlight State & Cursor Tracker) ---
       const NotesListRenderer = ({
         notesData,
         isExport = false,
@@ -2683,6 +2668,7 @@
         onMoveDown,
         highlightedId,
         searchQuery,
+        onCursorTrack, // <--- NEW PROP
       }) => {
         const handleHeadingChange = (id, newHeading) => {
           onUpdateNote(id, { heading: newHeading });
@@ -2694,7 +2680,7 @@
               const isFilled = note.style === "filled";
               const noteColor = note.color || COLORS[index % COLORS.length];
               const textColor = isFilled ? "white" : "#334155";
-              const isHighlighted = highlightedId === note.id; // Check if this note is the active search match
+              const isHighlighted = highlightedId === note.id;
               const isCollapsed = note.isCollapsed && !isExport;
               const currentBorderColor = isHighlighted ? "#fb923c" : noteColor;
               const showToolbar = !isExport;
@@ -2710,6 +2696,7 @@
                       : "hover:shadow-md"
                   } mt-4`}
                 >
+                  {/* ... Toolbar Logic (Unchanged) ... */}
                   {showToolbar && (
                     <div className="absolute right-2 top-2 flex flex-row items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-white/95 backdrop-blur px-2 py-1 rounded-full shadow-sm border border-slate-200">
                       <div className="flex items-center gap-1 border-r border-slate-200 pr-2">
@@ -2782,6 +2769,7 @@
                       color: textColor,
                     }}
                   >
+                    {/* ... Heading Logic (Unchanged) ... */}
                     <div
                       className="flex items-center gap-2 mb-3 pr-24 border-b border-black/5 pb-2"
                       style={{
@@ -2806,7 +2794,6 @@
                           )}
                         </button>
                       )}
-
                       {!isExport && !isReadingMode ? (
                         <input
                           type="text"
@@ -2824,7 +2811,6 @@
                         />
                       ) : (
                         <div className="font-bold text-sm select-text w-full">
-                          {/* Pass isHighlighted to heading preview too */}
                           {parseMarkdown(
                             displayHeading,
                             searchQuery,
@@ -2833,7 +2819,6 @@
                           )}
                         </div>
                       )}
-
                       {isHighlighted && (
                         <span className="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide shadow-sm animate-pulse flex-shrink-0 ml-auto">
                           Target
@@ -2852,7 +2837,7 @@
                         (Click to expand content...)
                       </div>
                     ) : (
-                      // Pass isHighlighted down
+                      // Pass props down
                       <NoteContentManager
                         note={note}
                         isExport={isExport}
@@ -2860,6 +2845,7 @@
                         searchQuery={searchQuery}
                         onUpdate={onUpdateNote}
                         isHighlighted={isHighlighted}
+                        onCursorTrack={onCursorTrack} // <--- Pass here
                       />
                     )}
                   </div>
@@ -2877,8 +2863,9 @@
 
       // --- GLOBAL STATE: Persist Scroll Position across Tab Switches ---
       let globalNotesScrollPos = 0;
+      let globalNotesCursor = null; // <--- NEW: Persist cursor across tabs
 
-      // --- NOTES PAGE COMPONENT (Updated with Persistent Scroll & Shortcut) ---
+      // --- NOTES PAGE COMPONENT (Exact Line-Based Scroll Logic + Global Persistence) ---
       const NotesView = ({
         notesData,
         onAddNote,
@@ -2888,10 +2875,8 @@
         isDownloading,
         onMoveUp,
         onMoveDown,
-        // Reading Mode Props
         isReadingMode,
         setIsReadingMode,
-        // Search Props
         searchState,
         setSearchState,
         handleSearchNext,
@@ -2902,17 +2887,65 @@
         setShowSearch,
         onCloseSearch,
       }) => {
-        // Ref to the scrollable div
         const scrollContainerRef = useRef(null);
+        // REMOVED local ref: const lastCursorRef = useRef(null);
 
-        // 1. UPDATED: Handle Scroll - Save to GLOBAL variable immediately
+        // 1. Handle Scroll
         const handleScroll = () => {
           if (scrollContainerRef.current) {
             globalNotesScrollPos = scrollContainerRef.current.scrollTop;
           }
         };
 
-        // 2. Toggle Mode Button Handler
+        // 2. UPDATED: Track Line Number in GLOBAL Variable
+        const handleRecordCursor = (noteId, blockId, pos, lineNum = 0) => {
+          if (!isReadingMode) {
+            // Save to global scope so it survives tab switches
+            globalNotesCursor = { noteId, blockId, pos, lineNum };
+          }
+        };
+
+        // 3. UPDATED: Restore Focus from GLOBAL Variable
+        useEffect(() => {
+          // Check global variable instead of local ref
+          if (!isReadingMode && globalNotesCursor) {
+            const { blockId, pos, lineNum } = globalNotesCursor;
+
+            setTimeout(() => {
+              const el = document.getElementById(`block-input-${blockId}`);
+              const container = scrollContainerRef.current;
+
+              if (el && container) {
+                // A. Set Focus & Caret first
+                el.focus({ preventScroll: true });
+                el.setSelectionRange(pos, pos);
+
+                // B. Calculate Exact Scroll Position
+                const lineHeightPx = 23; // Approx height for text-sm
+                const lineOffset = lineNum * lineHeightPx;
+
+                const elRect = el.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+
+                // Absolute top of element inside the scrollable area
+                const relativeTop =
+                  elRect.top - containerRect.top + container.scrollTop;
+
+                // Target: Element Top + Line Offset - Half Viewport (Center it)
+                const targetScroll =
+                  relativeTop + lineOffset - container.clientHeight / 2;
+
+                // C. Scroll strictly to that pixel
+                container.scrollTo({
+                  top: targetScroll,
+                  behavior: "auto",
+                });
+              }
+            }, 100);
+          }
+        }, [isReadingMode]); // Runs on mount (tab switch) AND mode toggle
+
+        // 4. Toggle Mode
         const handleToggleReadingMode = () => {
           if (scrollContainerRef.current) {
             globalNotesScrollPos = scrollContainerRef.current.scrollTop;
@@ -2920,15 +2953,14 @@
           setIsReadingMode(!isReadingMode);
         };
 
-        // 3. UPDATED: Restore Scroll Position from GLOBAL variable
-        // Uses globalNotesScrollPos instead of local ref
+        // 5. Restore Global Scroll
         useLayoutEffect(() => {
           if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTop = globalNotesScrollPos;
           }
-        }, [isReadingMode, notesData]); // Restore on mount, mode change, or typing
+        }, [isReadingMode, notesData]);
 
-        // 4. NEW: Keyboard Shortcut Listener (Ctrl + Shift + E)
+        // 6. Shortcut
         useEffect(() => {
           const handleShortcut = (e) => {
             if (
@@ -2942,20 +2974,18 @@
           };
           window.addEventListener("keydown", handleShortcut);
           return () => window.removeEventListener("keydown", handleShortcut);
-        }, [isReadingMode]); // Re-bind when mode changes to capture correct state
+        }, [isReadingMode]);
 
         return (
           <div className="flex-1 bg-slate-50 flex flex-col h-full overflow-hidden">
-            {/* Fixed Header */}
+            {/* Header */}
             <div className="flex-none bg-slate-50 border-b border-slate-200 px-8 py-4 z-10 shadow-sm transition-all">
               <div className="max-w-5xl mx-auto flex flex-col gap-4">
-                {/* Header Row */}
                 <div className="flex justify-between items-center">
                   <h2 className="text-3xl font-bold text-slate-800">
                     My Notes
                   </h2>
                   <div className="flex gap-2">
-                    {/* UPDATED: READING MODE TOGGLE BUTTON */}
                     <button
                       onClick={handleToggleReadingMode}
                       className={`flex items-center gap-2 px-3 py-2 ${
@@ -2968,7 +2998,6 @@
                       <EyeIcon /> {isReadingMode ? "Reading Mode" : "Edit Mode"}
                     </button>
 
-                    {/* FIND BUTTON */}
                     <button
                       onClick={() =>
                         showSearch ? onCloseSearch() : setShowSearch(true)
@@ -2978,7 +3007,6 @@
                           ? "bg-blue-100 text-blue-700"
                           : "bg-white text-slate-600"
                       } border border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm transition-all text-sm font-medium`}
-                      title="Find and Replace"
                     >
                       <SearchIcon /> {showSearch ? "Hide Search" : "Find"}
                     </button>
@@ -3052,7 +3080,6 @@
                   </div>
                 </div>
 
-                {/* SEARCH BAR UI */}
                 {showSearch && (
                   <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-lg border border-blue-200 shadow-sm animate-fade-in">
                     <div className="flex items-center bg-slate-100 rounded px-2 py-1 flex-1">
@@ -3133,10 +3160,9 @@
               </div>
             </div>
 
-            {/* Scrollable Content - ATTACHED REF HERE */}
             <div
               ref={scrollContainerRef}
-              onScroll={handleScroll} // <--- UPDATED: Track scroll here
+              onScroll={handleScroll}
               className="flex-1 overflow-y-auto p-8 pt-4 custom-scrollbar"
             >
               <div className="max-w-5xl mx-auto space-y-6 pb-20">
@@ -3153,6 +3179,7 @@
                     }
                     searchQuery={searchState.query}
                     isExport={false}
+                    onCursorTrack={handleRecordCursor} // Passed down
                   />
                 </div>
               </div>
