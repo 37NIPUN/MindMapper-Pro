@@ -4121,6 +4121,133 @@
           setMovingNodeId(null);
         };
 
+        // --- LEVEL-BY-LEVEL EXPAND/COLLAPSE HELPERS ---
+
+        // Helper: Get max depth of currently visible descendants for a node
+        const getVisibleDepth = useCallback((nodeId, allNodes) => {
+          const children = allNodes.filter(
+            (n) => n.parentId === nodeId && !n.isCollapsed
+          );
+          if (children.length === 0) return 0;
+          const depths = children.map(
+            (child) => 1 + getVisibleDepth(child.id, allNodes)
+          );
+          return Math.max(...depths);
+        }, []);
+
+        // Helper: Get all descendants recursively
+        const getAllDescendants = useCallback((nodeId, allNodes) => {
+          let descendants = [];
+          allNodes.forEach((n) => {
+            if (n.parentId === nodeId) {
+              descendants.push(n);
+              descendants = [
+                ...descendants,
+                ...getAllDescendants(n.id, allNodes),
+              ];
+            }
+          });
+          return descendants;
+        }, []);
+
+        // EXPAND NEXT LEVEL (Ctrl + Shift + [)
+        const expandNextLevel = useCallback(
+          (nodeId) => {
+            // 1. If node itself is collapsed, expand it first
+            const node = nodes.find((n) => n.id === nodeId);
+            if (node && node.isCollapsed) {
+              updateNodesWithHistory(
+                nodes.map((n) =>
+                  n.id === nodeId ? { ...n, isCollapsed: false } : n
+                )
+              );
+              return;
+            }
+
+            // 2. Find immediate children that are collapsed
+            const immediateChildren = nodes.filter(
+              (n) => n.parentId === nodeId
+            );
+            const collapsedChildren = immediateChildren.filter(
+              (n) => n.isCollapsed
+            );
+
+            if (collapsedChildren.length > 0) {
+              // Expand immediate children (Level 1)
+              const newNodes = nodes.map((n) =>
+                n.parentId === nodeId ? { ...n, isCollapsed: false } : n
+              );
+              updateNodesWithHistory(newNodes);
+            } else {
+              // 3. If immediate children are open, go deeper
+              const descendants = getAllDescendants(nodeId, nodes);
+
+              // Find visible descendants (parents are expanded) that are themselves collapsed
+              const visibleDescendants = descendants.filter((d) => {
+                const parent = nodes.find((p) => p.id === d.parentId);
+                return parent && !parent.isCollapsed && d.isCollapsed;
+              });
+
+              if (visibleDescendants.length > 0) {
+                // Find the minimum depth among these candidates to expand just the next layer
+                const minDepth = Math.min(
+                  ...visibleDescendants.map((n) => n.depth)
+                );
+
+                const newNodes = nodes.map((n) => {
+                  if (
+                    n.depth === minDepth &&
+                    descendants.some((d) => d.id === n.id)
+                  ) {
+                    return { ...n, isCollapsed: false };
+                  }
+                  return n;
+                });
+                updateNodesWithHistory(newNodes);
+              }
+            }
+          },
+          [nodes, getAllDescendants]
+        ); // Dependencies
+
+        // COLLAPSE ONE LEVEL (Ctrl + Shift + ])
+        const collapseOneLevel = useCallback(
+          (nodeId) => {
+            const descendants = getAllDescendants(nodeId, nodes);
+
+            // Find deepest level that is currently visible
+            const visibleParents = descendants.filter(
+              (n) => !n.isCollapsed && nodes.some((c) => c.parentId === n.id)
+            );
+
+            if (visibleParents.length > 0) {
+              // Collapse the deepest expanded nodes
+              const maxDepth = Math.max(...visibleParents.map((n) => n.depth));
+              const newNodes = nodes.map((n) => {
+                if (
+                  n.depth === maxDepth &&
+                  visibleParents.some((vp) => vp.id === n.id)
+                ) {
+                  return { ...n, isCollapsed: true };
+                }
+                return n;
+              });
+              updateNodesWithHistory(newNodes);
+            } else {
+              // If no descendants are expanded, collapse the node itself
+              const hasChildren = nodes.some((n) => n.parentId === nodeId);
+              if (hasChildren) {
+                updateNodesWithHistory(
+                  nodes.map((n) =>
+                    n.id === nodeId ? { ...n, isCollapsed: true } : n
+                  )
+                );
+              }
+            }
+          },
+          [nodes, getAllDescendants]
+        ); // Dependencies
+
         // --- 1. STATE DEFINITION (Put at top of App) ---
         const [moveCopyDialog, setMoveCopyDialog] = useState({
           isOpen: false,
@@ -5208,53 +5335,64 @@
           }
         };
 
-        // --- NEW SHORTCUTS: Add, Delete, Expand/Collapse, Switch View ---
+        // --- KEYBOARD SHORTCUTS ---
         useEffect(() => {
           const handleActionShortcuts = (e) => {
+            const isCtrlShift = (e.ctrlKey || e.metaKey) && e.shiftKey;
+
             // 1. Add Node: Ctrl + Shift + A
-            if (
-              (e.ctrlKey || e.metaKey) &&
-              e.shiftKey &&
-              e.key.toLowerCase() === "a"
-            ) {
+            if (isCtrlShift && e.key.toLowerCase() === "a") {
               e.preventDefault();
               addNode();
             }
 
             // 2. Delete Node: Ctrl + Shift + D
-            if (
-              (e.ctrlKey || e.metaKey) &&
-              e.shiftKey &&
-              e.key.toLowerCase() === "d"
-            ) {
+            if (isCtrlShift && e.key.toLowerCase() === "d") {
               e.preventDefault();
               deleteNode();
             }
 
-            // 3. Expand/Collapse: Ctrl + Shift + X
-            if (
-              (e.ctrlKey || e.metaKey) &&
-              e.shiftKey &&
-              e.key.toLowerCase() === "x"
-            ) {
+            // 3. Global Expand/Collapse: Ctrl + Shift + X
+            if (isCtrlShift && e.key.toLowerCase() === "x") {
               e.preventDefault();
               handleToolbarExpandCollapse();
             }
 
             // 4. Switch View: Ctrl + Shift + S
-            if (
-              (e.ctrlKey || e.metaKey) &&
-              e.shiftKey &&
-              e.key.toLowerCase() === "s"
-            ) {
+            if (isCtrlShift && e.key.toLowerCase() === "s") {
               e.preventDefault();
               handleSwitchView(viewMode === "map" ? "notes" : "map");
             }
 
-            // 5. NEW: Toggle Shortcuts Dialog: Ctrl + /
+            // 5. Toggle Shortcuts: Ctrl + /
             if ((e.ctrlKey || e.metaKey) && e.key === "/") {
               e.preventDefault();
               setShowShortcuts((prev) => !prev);
+            }
+
+            // --- LEVEL-BY-LEVEL SHORTCUTS (FIXED) ---
+
+            // 6. Expand Next Level: Ctrl + Shift + {
+            if (isCtrlShift && e.key === "{") {
+              e.preventDefault();
+              e.stopPropagation();
+              if (viewMode === "map") {
+                // Yahan check karo ki function exist karta hai ya nahi
+                if (typeof expandNextLevel === "function") {
+                  expandNextLevel(selectedNodeId || "root");
+                }
+              }
+            }
+
+            // 7. Collapse One Level: Ctrl + Shift + }
+            if (isCtrlShift && e.key === "}") {
+              e.preventDefault();
+              e.stopPropagation();
+              if (viewMode === "map") {
+                if (typeof collapseOneLevel === "function") {
+                  collapseOneLevel(selectedNodeId || "root");
+                }
+              }
             }
           };
 
@@ -5262,11 +5400,15 @@
           return () =>
             window.removeEventListener("keydown", handleActionShortcuts);
         }, [
+          // IMPORTANT: Dependency Array mein saare variables hone chahiye
           addNode,
           deleteNode,
           handleToolbarExpandCollapse,
           viewMode,
           handleSwitchView,
+          selectedNodeId,
+          expandNextLevel, // <--- Yeh hona zaroori hai!
+          collapseOneLevel, // <--- Yeh bhi!
         ]);
 
         return (
