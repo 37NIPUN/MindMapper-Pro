@@ -965,6 +965,12 @@
           const textarea = textareaRef.current;
           if (!textarea) return;
 
+          // FIX: Prevent scroll jumping when resizing
+          // We capture the scroll position of the main scroll container before resizing
+          // The class ".overflow-y-auto" matches the main NotesView container
+          const scrollParent = textarea.closest(".overflow-y-auto");
+          const prevScrollTop = scrollParent ? scrollParent.scrollTop : 0;
+
           textarea.style.height = "auto";
           const newHeight = Math.max(
             textarea.scrollHeight,
@@ -974,6 +980,11 @@
 
           if (backdropRef.current) {
             backdropRef.current.style.height = `${newHeight}px`;
+          }
+
+          // Restore scroll position if it shifted due to the temporary shrink
+          if (scrollParent && scrollParent.scrollTop !== prevScrollTop) {
+            scrollParent.scrollTop = prevScrollTop;
           }
         }, [value, minHeight]);
 
@@ -2872,7 +2883,7 @@
       let globalNotesScrollPos = 0;
       let globalNotesCursor = null; // <--- NEW: Persist cursor across tabs
 
-      // --- NOTES PAGE COMPONENT (Exact Line-Based Scroll Logic + Global Persistence) ---
+      // --- NOTES PAGE COMPONENT (Seamless Scroll Sync) ---
       const NotesView = ({
         notesData,
         onAddNote,
@@ -2895,79 +2906,55 @@
         onCloseSearch,
       }) => {
         const scrollContainerRef = useRef(null);
-        // REMOVED local ref: const lastCursorRef = useRef(null);
+        // Ref to store the relative scroll position (0 to 1)
+        const scrollRatioRef = useRef(0);
+        // Ref to store exact pixel offset from the top element
+        const topElementOffsetRef = useRef(null);
 
-        // 1. Handle Scroll
+        // 1. Capture Scroll Position BEFORE switching modes
+        const handleToggleReadingMode = () => {
+          if (scrollContainerRef.current) {
+            const container = scrollContainerRef.current;
+          }
+          setIsReadingMode(!isReadingMode);
+        };
+
+        // 2. Restore Scroll Position AFTER rendering new mode
+        useLayoutEffect(() => {
+          if (scrollContainerRef.current) {
+            // Restore strict pixel position
+            scrollContainerRef.current.scrollTop = globalNotesScrollPos;
+          }
+        }, [isReadingMode]); // Only re-run when mode changes
+
+        // 3. Keep Global Scroll Updated during normal scrolling
         const handleScroll = () => {
           if (scrollContainerRef.current) {
             globalNotesScrollPos = scrollContainerRef.current.scrollTop;
           }
         };
 
-        // 2. UPDATED: Track Line Number in GLOBAL Variable
-        const handleRecordCursor = (noteId, blockId, pos, lineNum = 0) => {
-          if (!isReadingMode) {
-            // Save to global scope so it survives tab switches
-            globalNotesCursor = { noteId, blockId, pos, lineNum };
-          }
+        // 4. Cursor Tracking (Existing Logic preserved)
+        const handleRecordCursor = (noteId, blockId, pos, visualOffset = 0) => {
+          globalNotesCursor = { noteId, blockId, pos, visualOffset };
         };
 
-        // 3. UPDATED: Restore Focus from GLOBAL Variable
+        // 5. Restore Focus/Cursor on Edit Mode (Existing Logic)
         useEffect(() => {
-          // Check global variable instead of local ref
           if (!isReadingMode && globalNotesCursor) {
-            const { blockId, pos, lineNum } = globalNotesCursor;
-
+            const { blockId, pos, visualOffset } = globalNotesCursor;
             setTimeout(() => {
               const el = document.getElementById(`block-input-${blockId}`);
               const container = scrollContainerRef.current;
-
               if (el && container) {
-                // A. Set Focus & Caret first
                 el.focus({ preventScroll: true });
                 el.setSelectionRange(pos, pos);
-
-                // B. Calculate Exact Scroll Position
-                const lineHeightPx = 23; // Approx height for text-sm
-                const lineOffset = lineNum * lineHeightPx;
-
-                const elRect = el.getBoundingClientRect();
-                const containerRect = container.getBoundingClientRect();
-
-                // Absolute top of element inside the scrollable area
-                const relativeTop =
-                  elRect.top - containerRect.top + container.scrollTop;
-
-                // Target: Element Top + Line Offset - Half Viewport (Center it)
-                const targetScroll =
-                  relativeTop + lineOffset - container.clientHeight / 2;
-
-                // C. Scroll strictly to that pixel
-                container.scrollTo({
-                  top: targetScroll,
-                  behavior: "auto",
-                });
               }
-            }, 100);
+            }, 50);
           }
-        }, [isReadingMode]); // Runs on mount (tab switch) AND mode toggle
+        }, [isReadingMode]);
 
-        // 4. Toggle Mode
-        const handleToggleReadingMode = () => {
-          if (scrollContainerRef.current) {
-            globalNotesScrollPos = scrollContainerRef.current.scrollTop;
-          }
-          setIsReadingMode(!isReadingMode);
-        };
-
-        // 5. Restore Global Scroll
-        useLayoutEffect(() => {
-          if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTop = globalNotesScrollPos;
-          }
-        }, [isReadingMode, notesData]);
-
-        // 6. Shortcut
+        // 6. Shortcut (Ctrl+Shift+E)
         useEffect(() => {
           const handleShortcut = (e) => {
             if (
@@ -3025,6 +3012,7 @@
                       <PlusIcon /> Add Point
                     </button>
 
+                    {/* Export Buttons */}
                     <div className="flex items-center bg-white rounded-full p-1 border border-slate-200 shadow-sm ring-1 ring-slate-100">
                       <div className="flex items-center gap-2 pl-3 pr-2 text-slate-400 border-r border-slate-100">
                         {isDownloading ? (
@@ -3087,6 +3075,7 @@
                   </div>
                 </div>
 
+                {/* Search Bar */}
                 {showSearch && (
                   <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-lg border border-blue-200 shadow-sm animate-fade-in">
                     <div className="flex items-center bg-slate-100 rounded px-2 py-1 flex-1">
@@ -3106,9 +3095,11 @@
                       />
                       <span className="text-xs text-slate-400 font-mono whitespace-nowrap px-1">
                         {searchState.matches.length > 0
-                          ? `${searchState.currentIndex + 1}/${
-                              searchState.matches.length
-                            }`
+                          ? `${
+                              searchState.matches.length > 0
+                                ? searchState.currentIndex + 1
+                                : 0
+                            }/${searchState.matches.length}`
                           : "0/0"}
                       </span>
                     </div>
@@ -3167,6 +3158,7 @@
               </div>
             </div>
 
+            {/* Scrollable Container */}
             <div
               ref={scrollContainerRef}
               onScroll={handleScroll}
@@ -3186,7 +3178,7 @@
                     }
                     searchQuery={searchState.query}
                     isExport={false}
-                    onCursorTrack={handleRecordCursor} // Passed down
+                    onCursorTrack={handleRecordCursor} // Cursor tracking passed down
                   />
                 </div>
               </div>
