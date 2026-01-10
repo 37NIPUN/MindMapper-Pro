@@ -2881,7 +2881,8 @@
 
       // --- GLOBAL STATE: Persist Scroll Position across Tab Switches ---
       let globalNotesScrollPos = 0;
-      let globalNotesCursor = null; // <--- NEW: Persist cursor across tabs
+      let globalNotesScrollRatio = 0; // <--- NEW: Track Ratio for smooth toggling
+      let globalNotesCursor = null;
 
       // --- NOTES PAGE COMPONENT (Seamless Scroll Sync) ---
       const NotesView = ({
@@ -2906,31 +2907,51 @@
         onCloseSearch,
       }) => {
         const scrollContainerRef = useRef(null);
-        // Ref to store the relative scroll position (0 to 1)
-        const scrollRatioRef = useRef(0);
-        // Ref to store exact pixel offset from the top element
-        const topElementOffsetRef = useRef(null);
 
-        // 1. Capture Scroll Position BEFORE switching modes
+        // 1. Capture Scroll RATIO BEFORE switching modes
         const handleToggleReadingMode = () => {
           if (scrollContainerRef.current) {
             const container = scrollContainerRef.current;
+            const maxScroll = container.scrollHeight - container.clientHeight;
+
+            // Save Ratio (Percentage) instead of Pixels for Mode Switching
+            if (maxScroll > 0) {
+              globalNotesScrollRatio = container.scrollTop / maxScroll;
+            } else {
+              globalNotesScrollRatio = 0;
+            }
+            // Also save pixels for tab switching
+            globalNotesScrollPos = container.scrollTop;
           }
           setIsReadingMode(!isReadingMode);
         };
 
-        // 2. Restore Scroll Position AFTER rendering new mode
+        // 2. Restore Scroll Position using RATIO
         useLayoutEffect(() => {
           if (scrollContainerRef.current) {
-            // Restore strict pixel position
-            scrollContainerRef.current.scrollTop = globalNotesScrollPos;
-          }
-        }, [isReadingMode]); // Only re-run when mode changes
+            const container = scrollContainerRef.current;
+            const maxScroll = container.scrollHeight - container.clientHeight;
 
-        // 3. Keep Global Scroll Updated during normal scrolling
+            // If we have a ratio saved, use it to calculate new pixel position
+            if (maxScroll > 0) {
+              container.scrollTop = globalNotesScrollRatio * maxScroll;
+            } else {
+              container.scrollTop = globalNotesScrollPos;
+            }
+          }
+        }, [isReadingMode]);
+
+        // 3. Keep Global Scroll Updated
         const handleScroll = () => {
           if (scrollContainerRef.current) {
-            globalNotesScrollPos = scrollContainerRef.current.scrollTop;
+            const container = scrollContainerRef.current;
+            globalNotesScrollPos = container.scrollTop;
+
+            // Keep ratio updated too, so tab switching keeps relative position if needed
+            const maxScroll = container.scrollHeight - container.clientHeight;
+            if (maxScroll > 0) {
+              globalNotesScrollRatio = container.scrollTop / maxScroll;
+            }
           }
         };
 
@@ -2949,6 +2970,7 @@
               if (el && container) {
                 el.focus({ preventScroll: true });
                 el.setSelectionRange(pos, pos);
+                // No forced scroll here, relying on LayoutEffect ratio sync
               }
             }, 50);
           }
