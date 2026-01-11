@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Smart MindMap & Notes Pro - Markdown Support</title>
+    <title>MindMapper Pro</title>
 
     <!-- 1. Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -2412,6 +2412,8 @@
                   .join("\n");
                 return `${headers}\n${rows}`;
               }
+              // Handle Divider in Legacy Text (Markdown standard)
+              if (b.type === "divider") return "\n---\n";
               return "";
             })
             .join("\n\n");
@@ -2461,7 +2463,12 @@
                 content: "",
               });
               const legacyText = newBlocks
-                .map((b) => (b.type === "text" ? b.content : "[Table]"))
+                .map((b) => {
+                  if (b.type === "text") return b.content;
+                  if (b.type === "table") return "[Table]";
+                  if (b.type === "divider") return "---";
+                  return "";
+                })
                 .join("\n");
               onUpdate(note.id, {
                 blocks: newBlocks,
@@ -2552,6 +2559,7 @@
         };
 
         const handleTextChange = (blockId, newText) => {
+          // 1. TABLE SHORTCUT (\t)
           if (newText.includes("\\t")) {
             const splitParts = newText.split("\\t");
             const newTableBlock = {
@@ -2584,9 +2592,68 @@
             onUpdate(note.id, {
               blocks: updatedBlocks,
               text: updatedBlocks
-                .map((b) => (b.type === "text" ? b.content : "[Table]"))
+                .map((b) => {
+                  if (b.type === "text") return b.content;
+                  if (b.type === "table") return "[Table]";
+                  if (b.type === "divider") return "---";
+                  return "";
+                })
                 .join("\n"),
             });
+          }
+          // 2. DIVIDER SHORTCUT (\h) - NEW FEATURE
+          else if (newText.includes("\\h")) {
+            const splitParts = newText.split("\\h");
+
+            // Create Divider Block
+            const newDividerBlock = {
+              id: `div-${Date.now()}`,
+              type: "divider",
+            };
+
+            // Create New Text Block (for text after \h)
+            const newTextBlock = {
+              id: `txt-${Date.now() + 1}`,
+              type: "text",
+              content: splitParts.slice(1).join(""),
+            };
+
+            const currentIdx = blocks.findIndex((b) => b.id === blockId);
+            const updatedBlocks = [...blocks];
+
+            // Update current block content (before \h)
+            updatedBlocks[currentIdx] = {
+              ...updatedBlocks[currentIdx],
+              content: splitParts[0],
+            };
+
+            // Insert Divider and New Text Block
+            updatedBlocks.splice(
+              currentIdx + 1,
+              0,
+              newDividerBlock,
+              newTextBlock
+            );
+
+            onUpdate(note.id, {
+              blocks: updatedBlocks,
+              text: updatedBlocks
+                .map((b) => {
+                  if (b.type === "text") return b.content;
+                  if (b.type === "table") return "[Table]";
+                  if (b.type === "divider") return "---";
+                  return "";
+                })
+                .join("\n"),
+            });
+
+            // Focus the new text block automatically
+            setTimeout(() => {
+              const el = document.getElementById(
+                `block-input-${newTextBlock.id}`
+              );
+              if (el) el.focus();
+            }, 50);
           } else {
             handleBlockUpdate(blockId, { content: newText });
           }
@@ -2595,6 +2662,28 @@
         return (
           <div className="flex flex-col gap-1 w-full">
             {blocks.map((block) => {
+              // --- RENDER DIVIDER ---
+              if (block.type === "divider") {
+                return (
+                  <div
+                    key={block.id}
+                    className="relative group/block my-2 py-1 select-none"
+                  >
+                    <hr className="border-t-2 border-slate-200 w-full" />
+                    {!isReadingMode && !isExport && (
+                      <button
+                        onClick={() => deleteBlock(block.id)}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/block:opacity-100 bg-white shadow-sm border border-slate-200 text-slate-400 hover:text-red-500 p-1 rounded-full transition-all transform hover:scale-110"
+                        title="Remove Line"
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+
+              // --- RENDER TABLE ---
               if (block.type === "table") {
                 return (
                   <div key={block.id} className="relative group/block my-1">
@@ -2612,6 +2701,8 @@
                   </div>
                 );
               }
+
+              // --- RENDER TEXT ---
               return (
                 <div key={block.id} className="w-full relative group/textblock">
                   {!isExport && !isReadingMode ? (
@@ -2644,7 +2735,7 @@
                           lineHeight: "1.6",
                           minHeight: "1.6em",
                         }}
-                        placeholder="Type text... (\t for table)"
+                        placeholder="Type text... (\t for table, \h for line)"
                       />
                       {blocks.length > 1 && !block.content && (
                         <button
@@ -3286,6 +3377,19 @@
             isCollapsed: false,
           },
         ]);
+
+        // --- NEW EFFECT: Sync Document Title with Root Node (Project Name) ---
+        useEffect(() => {
+          const rootNode = nodes.find((n) => n.id === "root");
+          if (rootNode) {
+            // Update browser tab title to match Root Node text
+            // If text is empty, fallback to "MindMapper Pro"
+            document.title =
+              rootNode.text && rootNode.text.trim() !== ""
+                ? rootNode.text
+                : "MindMapper Pro";
+          }
+        }, [nodes]);
 
         // STATE: NOTES
         const [notesData, setNotesData] = useState([]);
