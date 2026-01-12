@@ -84,6 +84,23 @@
       .animate-fade-in {
         animation: fadeIn 0.15s ease-out forwards;
       }
+
+      /* Toast Slide Animation */
+      @keyframes slideInRight {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      .animate-slide-in-right {
+        animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)
+          forwards;
+      }
     </style>
   </head>
 
@@ -918,6 +935,64 @@
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        );
+      };
+
+      // --- UPDATED TOAST COMPONENT (Dynamic Width) ---
+      const ToastNotification = ({ message, isVisible, onClose }) => {
+        useEffect(() => {
+          if (isVisible) {
+            const timer = setTimeout(() => {
+              onClose();
+            }, 4000); // Increased time slightly for reading long paths
+            return () => clearTimeout(timer);
+          }
+        }, [isVisible, onClose]);
+
+        if (!isVisible) return null;
+
+        return (
+          // Added 'max-w-[90vw]' to prevent it going off-screen on mobile
+          // Removed 'max-w-sm' to allow it to grow dynamically
+          <div className="fixed bottom-6 right-6 z-[100] animate-slide-in-right max-w-[90vw]">
+            <div className="bg-slate-800 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-4 border-l-4 border-green-500 w-auto min-w-[300px]">
+              {/* Icon Wrapper */}
+              <div className="bg-green-500/20 p-2 rounded-full flex-shrink-0">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#4ade80"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+
+              {/* Text Content */}
+              <div className="flex flex-col flex-1 mr-2">
+                <span className="font-bold text-[10px] text-green-400 uppercase tracking-widest mb-0.5">
+                  Success
+                </span>
+                {/* 'whitespace-nowrap' makes it grow horizontally, 'break-words' is fallback */}
+                <span className="text-sm font-medium text-slate-100 whitespace-nowrap">
+                  {message}
+                </span>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="p-1 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-full transition-all flex-shrink-0"
+              >
+                <CloseIcon />
+              </button>
             </div>
           </div>
         );
@@ -3314,6 +3389,13 @@
         const [isDirty, setIsDirty] = useState(false);
         const [dirtyLevel1Nodes, setDirtyLevel1Nodes] = useState(new Set());
 
+        // --- TOAST STATE ---
+        const [toast, setToast] = useState({ show: false, message: "" });
+
+        const showToast = (msg) => {
+          setToast({ show: true, message: msg });
+        };
+
         // Helper: Find the Level 1 Ancestor
         const findLevel1Ancestor = useCallback((nodeId, currentNodes) => {
           let node = currentNodes.find((n) => n.id === nodeId);
@@ -4788,6 +4870,9 @@
 
         // --- SAVE / LOAD ---
         const handleSaveProject = async () => {
+          // 1. CHECK DIRTY STATE
+          const shouldShowToast = isDirty || !currentFileHandle;
+
           const rootNode = nodes.find((n) => n.id === "root");
           const cleanName =
             rootNode && rootNode.text
@@ -4803,24 +4888,23 @@
           const projectData = JSON.stringify(projectDataObj, null, 2);
 
           let isSavedSuccessfully = false;
+          let savedPathDisplay = "";
 
-          // 1. TRY OVERWRITE (If we have a handle)
+          // 2. TRY OVERWRITE (Existing Handle)
           if (currentFileHandle) {
             try {
               const writable = await currentFileHandle.createWritable();
               await writable.write(projectData);
               await writable.close();
               isSavedSuccessfully = true;
+              savedPathDisplay = currentFileHandle.name;
               console.log("Saved to original file location, Ji!");
             } catch (err) {
-              console.warn(
-                "Lost access to file, falling back to Save As...",
-                err
-              );
+              console.warn("Lost access, falling back...");
             }
           }
 
-          // 2. MODERN 'SAVE AS' (If no handle or overwrite failed)
+          // 3. MODERN 'SAVE AS' (Picker)
           if (!isSavedSuccessfully && window.showSaveFilePicker) {
             try {
               const handle = await window.showSaveFilePicker({
@@ -4836,15 +4920,16 @@
               await writable.write(projectData);
               await writable.close();
 
-              setCurrentFileHandle(handle); // Remember this new location!
+              setCurrentFileHandle(handle);
               isSavedSuccessfully = true;
+              savedPathDisplay = handle.name;
             } catch (err) {
               if (err.name !== "AbortError") console.error("Save failed:", err);
-              else return; // User cancelled
+              else return;
             }
           }
 
-          // 3. LEGACY DOWNLOAD (Fallback for old browsers)
+          // 4. LEGACY DOWNLOAD (Downloads Folder)
           if (!isSavedSuccessfully) {
             try {
               const blob = new Blob([projectData], {
@@ -4858,6 +4943,9 @@
               link.click();
               document.body.removeChild(link);
               isSavedSuccessfully = true;
+
+              // Explicitly mention Downloads for this fallback
+              savedPathDisplay = `Downloads/${fileName}`;
             } catch (err) {
               console.error("Fallback Save failed:", err);
             }
@@ -4868,9 +4956,15 @@
             setDirtyLevel1Nodes(new Set());
             setHistory({ past: [], future: [] });
             setNotesHistory({ past: [], future: [] });
+
+            if (shouldShowToast) {
+              // Message format
+              showToast(`Changes saved to ${savedPathDisplay}`);
+            }
           }
         };
 
+        // --- UPDATED SHORTCUT LISTENER (FIXED DEPENDENCIES) ---
         useEffect(() => {
           const handleKeyDown = (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -4880,7 +4974,7 @@
           };
           window.addEventListener("keydown", handleKeyDown);
           return () => window.removeEventListener("keydown", handleKeyDown);
-        }, [nodes, notesData]);
+        }, [nodes, notesData, isDirty, currentFileHandle]); // <--- CRITICAL FIX: Added dependencies so it knows when isDirty changes
 
         const handleLoadProject = (e) => {
           const file = e.target.files[0];
@@ -6205,6 +6299,12 @@
               <ShortcutsDialog
                 isOpen={showShortcuts}
                 onClose={() => setShowShortcuts(false)}
+              />
+
+              <ToastNotification
+                message={toast.message}
+                isVisible={toast.show}
+                onClose={() => setToast({ ...toast, show: false })}
               />
 
               <MoveCopyDialog
