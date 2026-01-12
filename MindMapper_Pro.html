@@ -3304,6 +3304,9 @@
       function App() {
         const [viewMode, setViewMode] = useState("map");
 
+        // --- NEW STATE: File Handle (To remember where file is saved) ---
+        const [currentFileHandle, setCurrentFileHandle] = useState(null);
+
         // SHOW ALL SHORTCUTS
         const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -4801,12 +4804,27 @@
 
           let isSavedSuccessfully = false;
 
-          // 1. Modern API (Chrome/Edge/Safari latest)
-          if (window.showSaveFilePicker) {
+          // 1. TRY OVERWRITE (If we have a handle)
+          if (currentFileHandle) {
+            try {
+              const writable = await currentFileHandle.createWritable();
+              await writable.write(projectData);
+              await writable.close();
+              isSavedSuccessfully = true;
+              console.log("Saved to original file location, Ji!");
+            } catch (err) {
+              console.warn(
+                "Lost access to file, falling back to Save As...",
+                err
+              );
+            }
+          }
+
+          // 2. MODERN 'SAVE AS' (If no handle or overwrite failed)
+          if (!isSavedSuccessfully && window.showSaveFilePicker) {
             try {
               const handle = await window.showSaveFilePicker({
                 suggestedName: fileName,
-                startIn: "downloads",
                 types: [
                   {
                     description: "MindMap Project File",
@@ -4817,17 +4835,16 @@
               const writable = await handle.createWritable();
               await writable.write(projectData);
               await writable.close();
+
+              setCurrentFileHandle(handle); // Remember this new location!
               isSavedSuccessfully = true;
             } catch (err) {
-              if (err.name !== "AbortError") {
-                console.error("Modern Save failed:", err);
-              } else {
-                return; // User cancelled the dialog, so we stop here.
-              }
+              if (err.name !== "AbortError") console.error("Save failed:", err);
+              else return; // User cancelled
             }
           }
 
-          // 2. Fallback (If modern API fails or isn't supported)
+          // 3. LEGACY DOWNLOAD (Fallback for old browsers)
           if (!isSavedSuccessfully) {
             try {
               const blob = new Blob([projectData], {
@@ -4846,13 +4863,11 @@
             }
           }
 
-          // AFTER SUCCESSFUL SAVE:
           if (isSavedSuccessfully) {
             setIsDirty(false);
             setDirtyLevel1Nodes(new Set());
-            setHistory({ past: [], future: [] }); // Reset Map History
-            setNotesHistory({ past: [], future: [] }); // Reset Notes History <--- NEW
-            console.log("Project saved, histories reset, Ji!");
+            setHistory({ past: [], future: [] });
+            setNotesHistory({ past: [], future: [] });
           }
         };
 
@@ -4902,6 +4917,56 @@
           };
           reader.readAsText(file);
           if (projectInputRef.current) projectInputRef.current.value = "";
+        };
+
+        // --- NEW HANDLER: Open File via System Picker ---
+        const handleOpenProjectPicker = async () => {
+          if (window.showOpenFilePicker) {
+            try {
+              const [handle] = await window.showOpenFilePicker({
+                startIn: "downloads", // <--- Force start in Downloads folder
+                types: [
+                  {
+                    description: "MindMap Project File",
+                    accept: { "application/json": [".json"] },
+                  },
+                ],
+                multiple: false,
+              });
+
+              const file = await handle.getFile();
+              const contents = await file.text();
+
+              // Call your existing load logic
+              // Note: Ensure loadProjectData is defined or copy the logic inside here
+              const loadedData = JSON.parse(contents);
+              if (Array.isArray(loadedData)) {
+                setNodes(loadedData);
+                setNotesData([]);
+              } else {
+                setNodes(loadedData.mindMap || []);
+                setNotesData(loadedData.notes || []);
+              }
+
+              // IMPORTANT: Save the handle so we can overwrite later!
+              setCurrentFileHandle(handle);
+
+              // Reset histories
+              setIsDirty(false);
+              setDirtyLevel1Nodes(new Set());
+              setHistory({ past: [], future: [] });
+              setNotesHistory({ past: [], future: [] });
+            } catch (err) {
+              if (err.name !== "AbortError") {
+                console.error("Open failed:", err);
+                // Fallback if picker fails
+                if (projectInputRef.current) projectInputRef.current.click();
+              }
+            }
+          } else {
+            // Fallback for older browsers
+            if (projectInputRef.current) projectInputRef.current.click();
+          }
         };
 
         // --- UPDATED: DOWNLOAD MINDMAP (Fixed: Injects Inter Font & Medium Weight) ---
@@ -5691,7 +5756,7 @@
                         <SaveIcon />
                       </button>
                       <button
-                        onClick={() => projectInputRef.current.click()}
+                        onClick={handleOpenProjectPicker}
                         className="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
                         title="Open Project"
                       >
