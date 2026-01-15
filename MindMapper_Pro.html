@@ -1751,7 +1751,15 @@
               cleanCode = rawBlock.replace(/^```/, "").replace(/```$/, "");
             }
           } else {
-            cleanCode = rawBlock.replace(/^```/, "").replace(/```$/, "");
+            // NEW LOGIC: Handle both triple (```) and single (`) backticks inline
+            if (rawBlock.startsWith("```")) {
+              cleanCode = rawBlock.replace(/^```/, "").replace(/```$/, "");
+            } else if (rawBlock.startsWith("`")) {
+              cleanCode = rawBlock.replace(/^`/, "").replace(/`$/, "");
+            } else {
+              // Fallback
+              cleanCode = rawBlock.replace(/^```/, "").replace(/```$/, "");
+            }
           }
 
           const highlightedContent = highlightSyntax(cleanCode, lang);
@@ -1798,6 +1806,21 @@
         const lines = [];
         let currentLine = [];
 
+        // NEW HELPER: Parse inline text for single backticks (`code`)
+        const parseAndPush = (str) => {
+          if (!str) return;
+          // Split by single backticks, excluding newlines to be safe
+          const parts = str.split(/(`[^`\n]+`)/g);
+          parts.forEach((p) => {
+            if (!p) return;
+            if (p.startsWith("`") && p.endsWith("`") && p.length > 1) {
+              currentLine.push({ type: "code_inline", content: p });
+            } else {
+              currentLine.push({ type: "text", content: p });
+            }
+          });
+        };
+
         rawParts.forEach((part) => {
           if (part.startsWith("```") && part.endsWith("```")) {
             const isMultiLine = part.includes("\n");
@@ -1808,20 +1831,23 @@
               }
               lines.push([{ type: "code_block", content: part }]);
             } else {
+              // Triple backticks on one line? Treat as code
               currentLine.push({ type: "code_inline", content: part });
             }
           } else {
             const subLines = part.split("\n");
 
             if (subLines[0] !== "") {
-              currentLine.push({ type: "text", content: subLines[0] });
+              // Modified: Use parseAndPush instead of direct push
+              parseAndPush(subLines[0]);
             }
 
             for (let i = 1; i < subLines.length; i++) {
               lines.push(currentLine);
               currentLine = [];
               if (subLines[i] !== "") {
-                currentLine.push({ type: "text", content: subLines[i] });
+                // Modified: Use parseAndPush here too
+                parseAndPush(subLines[i]);
               }
             }
           }
