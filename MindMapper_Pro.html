@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -1049,7 +1049,7 @@
           textarea.style.height = "auto";
           const newHeight = Math.max(
             textarea.scrollHeight,
-            parseInt(minHeight)
+            parseInt(minHeight),
           );
           textarea.style.height = `${newHeight}px`;
 
@@ -1366,18 +1366,18 @@
                         borderTop: isDirtyLevel1
                           ? "2px solid #ef4444"
                           : isFilled
-                          ? "none"
-                          : `2px solid ${nodeColor}`,
+                            ? "none"
+                            : `2px solid ${nodeColor}`,
                         borderRight: isDirtyLevel1
                           ? "2px solid #ef4444"
                           : isFilled
-                          ? "none"
-                          : `2px solid ${nodeColor}`,
+                            ? "none"
+                            : `2px solid ${nodeColor}`,
                         borderBottom: isDirtyLevel1
                           ? "2px solid #ef4444"
                           : isFilled
-                          ? "none"
-                          : `2px solid ${nodeColor}`,
+                            ? "none"
+                            : `2px solid ${nodeColor}`,
                       }}
                     >
                       {isSelected ? (
@@ -1403,7 +1403,7 @@
                               // Move cursor to end
                               el.setSelectionRange(
                                 el.value.length,
-                                el.value.length
+                                el.value.length,
                               );
                             }
                           }}
@@ -1429,7 +1429,7 @@
                           {parseStyledText(
                             node.text || (node.text === "" ? "New Idea" : ""),
                             "",
-                            false
+                            false,
                           )}
                         </div>
                       )}
@@ -1493,9 +1493,9 @@
               <span
                 key={key}
                 style={{
-                  fontSize: "0.75em",
+                  fontSize: "0.6em",
                   position: "relative",
-                  top: "-0.4em", // Controls how high it goes (negative moves up)
+                  top: "-0.28em",
                   lineHeight: "0",
                   verticalAlign: "baseline",
                 }}
@@ -1513,9 +1513,9 @@
               <span
                 key={key}
                 style={{
-                  fontSize: "0.75em",
+                  fontSize: "0.6em",
                   position: "relative",
-                  bottom: "-0.25em", // Controls how low it goes (negative moves down)
+                  bottom: "-0.2em",
                   lineHeight: "0",
                   verticalAlign: "baseline",
                 }}
@@ -1570,7 +1570,7 @@
         text,
         searchQuery = "",
         isCurrentBlock = false,
-        isExport = false
+        isExport = false,
       ) => {
         if (!text) return "";
 
@@ -1633,7 +1633,7 @@
 
           tokenTypes.forEach((tokenRule) => {
             mask = mask.replace(tokenRule.regex, (match) =>
-              saveToken(tokenRule.type, match, tokenRule.style)
+              saveToken(tokenRule.type, match, tokenRule.style),
             );
           });
 
@@ -1903,7 +1903,7 @@
                             {parseStyledText(
                               segment.content,
                               searchQuery,
-                              isCurrentBlock
+                              isCurrentBlock,
                             )}
                           </span>
                         );
@@ -1976,7 +1976,7 @@
                               {parseStyledText(
                                 text,
                                 searchQuery,
-                                isCurrentBlock
+                                isCurrentBlock,
                               )}
                             </span>
                           );
@@ -1999,7 +1999,7 @@
                             {parseStyledText(
                               segment.content,
                               searchQuery,
-                              isCurrentBlock
+                              isCurrentBlock,
                             )}
                           </span>
                         );
@@ -2110,7 +2110,7 @@
             headers: headers.filter((_, i) => i !== colIdx),
             rows: rows.map((r) => r.filter((_, i) => i !== colIdx)),
             colWidths: (data.colWidths || headers.map(() => 150)).filter(
-              (_, i) => i !== colIdx
+              (_, i) => i !== colIdx,
             ),
             headerAligns: headerAligns.filter((_, i) => i !== colIdx),
             colAligns: colAligns.filter((_, i) => i !== colIdx),
@@ -2255,7 +2255,7 @@
                                 isActiveMatch={isHighlighted}
                                 // Padding-right 14 (3.5rem) to make space for the 2 buttons
                                 className={`w-full bg-transparent outline-none font-bold text-slate-700 placeholder-slate-400 p-2 min-h-[32px] resize-none overflow-hidden pr-8 ${getAlignClass(
-                                  headerAligns[idx]
+                                  headerAligns[idx],
                                 )}`}
                                 placeholder="Header"
                                 style={{ height: "100%" }}
@@ -2273,7 +2273,7 @@
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setActiveDropdown(
-                                      activeDropdown === idx ? null : idx
+                                      activeDropdown === idx ? null : idx,
                                     );
                                   }}
                                   className={`p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors ${
@@ -2313,7 +2313,7 @@
                                             >
                                               {getAlignIcon(align)}
                                             </button>
-                                          )
+                                          ),
                                         )}
                                       </div>
                                     </div>
@@ -2339,7 +2339,7 @@
                                             >
                                               {getAlignIcon(align)}
                                             </button>
-                                          )
+                                          ),
                                         )}
                                       </div>
                                     </div>
@@ -2360,13 +2360,13 @@
                           ) : (
                             <div
                               className={`p-2 font-bold break-words whitespace-pre-wrap min-h-[32px] ${getAlignClass(
-                                headerAligns[idx]
+                                headerAligns[idx],
                               )}`}
                             >
                               {parseStyledText(
                                 header,
                                 searchQuery,
-                                isHighlighted
+                                isHighlighted,
                               )}
                             </div>
                           )}
@@ -2420,7 +2420,7 @@
                               searchQuery={searchQuery}
                               isActiveMatch={isHighlighted}
                               className={`w-full bg-transparent outline-none text-slate-600 p-2 min-h-[36px] resize-none block ${getAlignClass(
-                                colAligns[colIdx]
+                                colAligns[colIdx],
                               )}`}
                               placeholder="..."
                             />
@@ -2428,13 +2428,13 @@
                             // FIXED: Added min-h-[36px] for reading mode rows
                             <div
                               className={`p-2 break-words whitespace-pre-wrap min-h-[36px] ${getAlignClass(
-                                colAligns[colIdx]
+                                colAligns[colIdx],
                               )}`}
                             >
                               {parseStyledText(
                                 cell,
                                 searchQuery,
-                                isHighlighted
+                                isHighlighted,
                               )}
                             </div>
                           )}
@@ -2501,7 +2501,7 @@
 
         const handleBlockUpdate = (blockId, updates) => {
           const newBlocks = blocks.map((b) =>
-            b.id === blockId ? { ...b, ...updates } : b
+            b.id === blockId ? { ...b, ...updates } : b,
           );
           const legacyText = newBlocks
             .map((b) => {
@@ -2592,11 +2592,11 @@
             const newCursorPos = end + 4;
             let newContent = !selection
               ? `${currentText.substring(0, start)}****${currentText.substring(
-                  end
+                  end,
                 )}`
               : `${currentText.substring(
                   0,
-                  start
+                  start,
                 )}**${selection}**${currentText.substring(end)}`;
             handleBlockUpdate(blockId, { content: newContent });
             setTimeout(() => {
@@ -2616,7 +2616,7 @@
               currentLineEnd === -1 ? currentText.length : currentLineEnd;
             const currentLine = currentText.substring(
               currentLineStart,
-              lineEndIndex
+              lineEndIndex,
             );
             if (/^\s*(\*|-)\s/.test(currentLine)) {
               const newText =
@@ -2733,7 +2733,7 @@
               currentIdx + 1,
               0,
               newDividerBlock,
-              newTextBlock
+              newTextBlock,
             );
 
             onUpdate(note.id, {
@@ -2751,7 +2751,7 @@
             // Focus the new text block automatically
             setTimeout(() => {
               const el = document.getElementById(
-                `block-input-${newTextBlock.id}`
+                `block-input-${newTextBlock.id}`,
               );
               if (el) el.focus();
             }, 50);
@@ -2856,7 +2856,7 @@
                         block.content,
                         searchQuery,
                         isHighlighted,
-                        isExport
+                        isExport,
                       )}
                     </div>
                   )}
@@ -3025,7 +3025,7 @@
                             displayHeading,
                             searchQuery,
                             isHighlighted,
-                            false
+                            false,
                           )}
                         </div>
                       )}
@@ -3451,7 +3451,7 @@
               });
             }
           },
-          [findLevel1Ancestor]
+          [findLevel1Ancestor],
         );
 
         // --- BROWSER CLOSE/REFRESH ALERT ---
@@ -3553,7 +3553,7 @@
               setPan({ x: newPanX, y: newPanY });
             }
           },
-          [visibleNodes, scale]
+          [visibleNodes, scale],
         );
 
         // --- 1. NEW STATE: HISTORY ---
@@ -3680,7 +3680,7 @@
             // 3. Map Navigation Logic (Only if in Map Mode & Node Selected)
             if (viewMode == "map" && selectedNodeId) {
               const currentNode = visibleNodes.find(
-                (n) => n.id === selectedNodeId
+                (n) => n.id === selectedNodeId,
               );
               if (!currentNode) return;
 
@@ -3706,7 +3706,7 @@
 
                   // B. AUTO-FOCUS TEXT AREA
                   const element = document.getElementById(
-                    `node-input-${nextNodeId}`
+                    `node-input-${nextNodeId}`,
                   );
                   if (element) {
                     element.focus();
@@ -3727,7 +3727,7 @@
                 e.preventDefault();
                 const siblings = getSameLevelNodes();
                 const currentIndex = siblings.findIndex(
-                  (n) => n.id === selectedNodeId
+                  (n) => n.id === selectedNodeId,
                 );
                 const nextIndex = (currentIndex + 1) % siblings.length;
                 performMove(siblings[nextIndex].id);
@@ -3739,7 +3739,7 @@
                 e.preventDefault();
                 const siblings = getSameLevelNodes();
                 const currentIndex = siblings.findIndex(
-                  (n) => n.id === selectedNodeId
+                  (n) => n.id === selectedNodeId,
                 );
                 if (currentIndex > 0) {
                   performMove(siblings[currentIndex - 1].id);
@@ -3752,7 +3752,7 @@
                 e.preventDefault();
                 const siblings = getSameLevelNodes();
                 const currentIndex = siblings.findIndex(
-                  (n) => n.id === selectedNodeId
+                  (n) => n.id === selectedNodeId,
                 );
                 if (currentIndex < siblings.length - 1) {
                   performMove(siblings[currentIndex + 1].id);
@@ -3784,13 +3784,15 @@
                   // 2. Check Hidden Children (Collapsed)
                   const rawNode = nodes.find((n) => n.id === selectedNodeId);
                   const hasChildren = nodes.some(
-                    (n) => n.parentId === selectedNodeId
+                    (n) => n.parentId === selectedNodeId,
                   );
 
                   // If it has children but they are collapsed, EXPAND them first
                   if (hasChildren && rawNode && rawNode.isCollapsed) {
                     const newNodes = nodes.map((n) =>
-                      n.id === selectedNodeId ? { ...n, isCollapsed: false } : n
+                      n.id === selectedNodeId
+                        ? { ...n, isCollapsed: false }
+                        : n,
                     );
                     updateNodesWithHistory(newNodes);
 
@@ -3821,7 +3823,7 @@
                         // Focus
                         setTimeout(() => {
                           const el = document.getElementById(
-                            `node-input-${childId}`
+                            `node-input-${childId}`,
                           );
                           if (el) el.focus();
                         }, 50);
@@ -3872,15 +3874,15 @@
 
             const dynamicWidth = Math.max(
               BASE_NODE_WIDTH,
-              textLen * CHAR_WIDTH_APPROX + 24
+              textLen * CHAR_WIDTH_APPROX + 24,
             );
             const dynamicHeight = Math.max(
               MIN_NODE_HEIGHT,
-              lineCount * 20 + 24
+              lineCount * 20 + 24,
             );
 
             const hasChildren = currentNodes.some(
-              (n) => n.parentId === node.id
+              (n) => n.parentId === node.id,
             );
             return {
               ...node,
@@ -3906,7 +3908,7 @@
             }
             if (!node.isCollapsed && node.children) {
               node.children.forEach((child) =>
-                calculateMetrics(child, level + 1)
+                calculateMetrics(child, level + 1),
               );
             }
           };
@@ -4054,7 +4056,7 @@
           if (!selectedNode || !selectedNode.parentId) return;
 
           const siblings = nodes.filter(
-            (n) => n.parentId === selectedNode.parentId
+            (n) => n.parentId === selectedNode.parentId,
           );
           const myIndex = siblings.findIndex((n) => n.id === selectedNodeId);
 
@@ -4065,7 +4067,7 @@
               newSiblings[myIndex],
             ];
             const otherNodes = nodes.filter(
-              (n) => n.parentId !== selectedNode.parentId
+              (n) => n.parentId !== selectedNode.parentId,
             );
 
             // SAVE HISTORY
@@ -4079,7 +4081,7 @@
           if (!selectedNode || !selectedNode.parentId) return;
 
           const siblings = nodes.filter(
-            (n) => n.parentId === selectedNode.parentId
+            (n) => n.parentId === selectedNode.parentId,
           );
           const myIndex = siblings.findIndex((n) => n.id === selectedNodeId);
 
@@ -4090,7 +4092,7 @@
               newSiblings[myIndex],
             ];
             const otherNodes = nodes.filter(
-              (n) => n.parentId !== selectedNode.parentId
+              (n) => n.parentId !== selectedNode.parentId,
             );
 
             // SAVE HISTORY
@@ -4103,7 +4105,7 @@
         // It DOES NOT recursively open/close children, preserving their state for manual drill-down.
         const toggleCollapse = (nodeId) => {
           const newNodes = nodes.map((n) =>
-            n.id === nodeId ? { ...n, isCollapsed: !n.isCollapsed } : n
+            n.id === nodeId ? { ...n, isCollapsed: !n.isCollapsed } : n,
           );
           updateNodesWithHistory(newNodes);
         };
@@ -4111,15 +4113,15 @@
         const toggleExpandAll = () => {
           const anyCollapsed = nodes.some(
             (n) =>
-              n.isCollapsed && nodes.some((child) => child.parentId === n.id)
+              n.isCollapsed && nodes.some((child) => child.parentId === n.id),
           );
           if (anyCollapsed) {
             setNodes((prev) => prev.map((n) => ({ ...n, isCollapsed: false })));
           } else {
             setNodes((prev) =>
               prev.map((n) =>
-                n.id === "root" ? n : { ...n, isCollapsed: true }
-              )
+                n.id === "root" ? n : { ...n, isCollapsed: true },
+              ),
             );
           }
         };
@@ -4131,7 +4133,7 @@
           }
           const parent = nodes.find((n) => n.id === selectedNodeId);
           const nodesExpanded = nodes.map((n) =>
-            n.id === parent.id ? { ...n, isCollapsed: false } : n
+            n.id === parent.id ? { ...n, isCollapsed: false } : n,
           );
 
           const nextDepth = (parent.depth || 0) + 1;
@@ -4157,7 +4159,7 @@
 
         const updateNodeText = (id, newText) => {
           const newNodes = nodes.map((n) =>
-            n.id === id ? { ...n, text: newText } : n
+            n.id === id ? { ...n, text: newText } : n,
           );
           updateNodesWithHistory(newNodes);
           markDirty(id); // <--- Yeh bhi sahi se chalega
@@ -4183,7 +4185,7 @@
           ];
 
           updateNodesWithHistory(
-            nodes.filter((n) => !idsToDelete.includes(n.id))
+            nodes.filter((n) => !idsToDelete.includes(n.id)),
           );
           markDirty(parentId); // Highlight parent branch after deletion
           setSelectedNodeId(null);
@@ -4194,7 +4196,7 @@
           setNodeColor(color);
           if (!selectedNodeId) return;
           const newNodes = nodes.map((n) =>
-            n.id === selectedNodeId ? { ...n, color: color } : n
+            n.id === selectedNodeId ? { ...n, color: color } : n,
           );
           updateNodesWithHistory(newNodes);
         };
@@ -4355,11 +4357,11 @@
         // Helper: Get max depth of currently visible descendants for a node
         const getVisibleDepth = useCallback((nodeId, allNodes) => {
           const children = allNodes.filter(
-            (n) => n.parentId === nodeId && !n.isCollapsed
+            (n) => n.parentId === nodeId && !n.isCollapsed,
           );
           if (children.length === 0) return 0;
           const depths = children.map(
-            (child) => 1 + getVisibleDepth(child.id, allNodes)
+            (child) => 1 + getVisibleDepth(child.id, allNodes),
           );
           return Math.max(...depths);
         }, []);
@@ -4387,24 +4389,24 @@
             if (node && node.isCollapsed) {
               updateNodesWithHistory(
                 nodes.map((n) =>
-                  n.id === nodeId ? { ...n, isCollapsed: false } : n
-                )
+                  n.id === nodeId ? { ...n, isCollapsed: false } : n,
+                ),
               );
               return;
             }
 
             // 2. Find immediate children that are collapsed
             const immediateChildren = nodes.filter(
-              (n) => n.parentId === nodeId
+              (n) => n.parentId === nodeId,
             );
             const collapsedChildren = immediateChildren.filter(
-              (n) => n.isCollapsed
+              (n) => n.isCollapsed,
             );
 
             if (collapsedChildren.length > 0) {
               // Expand immediate children (Level 1)
               const newNodes = nodes.map((n) =>
-                n.parentId === nodeId ? { ...n, isCollapsed: false } : n
+                n.parentId === nodeId ? { ...n, isCollapsed: false } : n,
               );
               updateNodesWithHistory(newNodes);
             } else {
@@ -4420,7 +4422,7 @@
               if (visibleDescendants.length > 0) {
                 // Find the minimum depth among these candidates to expand just the next layer
                 const minDepth = Math.min(
-                  ...visibleDescendants.map((n) => n.depth)
+                  ...visibleDescendants.map((n) => n.depth),
                 );
 
                 const newNodes = nodes.map((n) => {
@@ -4436,7 +4438,7 @@
               }
             }
           },
-          [nodes, getAllDescendants]
+          [nodes, getAllDescendants],
         ); // Dependencies
 
         // COLLAPSE ONE LEVEL (Ctrl + Shift + ])
@@ -4446,7 +4448,7 @@
 
             // Find deepest level that is currently visible
             const visibleParents = descendants.filter(
-              (n) => !n.isCollapsed && nodes.some((c) => c.parentId === n.id)
+              (n) => !n.isCollapsed && nodes.some((c) => c.parentId === n.id),
             );
 
             if (visibleParents.length > 0) {
@@ -4468,13 +4470,13 @@
               if (hasChildren) {
                 updateNodesWithHistory(
                   nodes.map((n) =>
-                    n.id === nodeId ? { ...n, isCollapsed: true } : n
-                  )
+                    n.id === nodeId ? { ...n, isCollapsed: true } : n,
+                  ),
                 );
               }
             }
           },
-          [nodes, getAllDescendants]
+          [nodes, getAllDescendants],
         ); // Dependencies
 
         // --- 1. STATE DEFINITION (Put at top of App) ---
@@ -4520,7 +4522,7 @@
           if (!sourceId || !targetId) return;
 
           const newNodes = nodes.map((n) =>
-            n.id === sourceId ? { ...n, parentId: targetId } : n
+            n.id === sourceId ? { ...n, parentId: targetId } : n,
           );
 
           // Re-calculate ALL depths and colors
@@ -4637,7 +4639,7 @@
 
         const updateNote = (id, updates) => {
           const newNotes = notesData.map((n) =>
-            n.id === id ? { ...n, ...updates } : n
+            n.id === id ? { ...n, ...updates } : n,
           );
           // Only save history if the text changed significantly or on blur
           // For simplicity, we save history. For input optimization, you might debounce this.
@@ -4692,17 +4694,17 @@
           ) {
             source = source.replace(
               /^<svg/,
-              '<svg xmlns="http://www.w3.org/2000/svg"'
+              '<svg xmlns="http://www.w3.org/2000/svg"',
             );
           }
           if (
             !source.match(
-              /^<svg[^>]+xmlns\:xlink="http\:\/\/www\.w3\.org\/1999\/xlink"/
+              /^<svg[^>]+xmlns\:xlink="http\:\/\/www\.w3\.org\/1999\/xlink"/,
             )
           ) {
             source = source.replace(
               /^<svg/,
-              '<svg xmlns:xlink="http://www.w3.org/1999/xlink"'
+              '<svg xmlns:xlink="http://www.w3.org/1999/xlink"',
             );
           }
 
@@ -4761,7 +4763,7 @@
               if (format === "svg") {
                 const tailwindStyles = Array.from(document.styleSheets)
                   .filter(
-                    (sheet) => !sheet.href || !sheet.href.includes("google")
+                    (sheet) => !sheet.href || !sheet.href.includes("google"),
                   )
                   .reduce((acc, sheet) => {
                     try {
@@ -4769,7 +4771,7 @@
                         acc +
                         Array.from(sheet.cssRules).reduce(
                           (a, rule) => a + rule.cssText,
-                          ""
+                          "",
                         )
                       );
                     } catch (e) {
@@ -4779,18 +4781,18 @@
 
                 const svgWrapper = document.createElementNS(
                   "http://www.w3.org/2000/svg",
-                  "svg"
+                  "svg",
                 );
                 svgWrapper.setAttribute("width", contentWidth);
                 svgWrapper.setAttribute("height", contentHeight);
                 svgWrapper.setAttribute(
                   "viewBox",
-                  `0 0 ${contentWidth} ${contentHeight}`
+                  `0 0 ${contentWidth} ${contentHeight}`,
                 );
 
                 const styleElement = document.createElementNS(
                   "http://www.w3.org/2000/svg",
-                  "style"
+                  "style",
                 );
 
                 const systemFontStack =
@@ -4836,7 +4838,7 @@
 
                 const foreignObject = document.createElementNS(
                   "http://www.w3.org/2000/svg",
-                  "foreignObject"
+                  "foreignObject",
                 );
 
                 foreignObject.setAttribute("x", "0");
@@ -4862,7 +4864,7 @@
 
                 downloadSVGFile(
                   svgWrapper,
-                  `searchable-notes-${Date.now()}.svg`
+                  `searchable-notes-${Date.now()}.svg`,
                 );
               } else {
                 const canvas = await html2canvas(element, {
@@ -5130,7 +5132,7 @@
 
                 const style = document.createElementNS(
                   "http://www.w3.org/2000/svg",
-                  "style"
+                  "style",
                 );
 
                 // Use "Inter" and weight 500 (Medium) to match the Node Editor's look
@@ -5241,7 +5243,7 @@
 
               const newScale = Math.min(
                 Math.max(0.05, currentScale + delta),
-                5
+                5,
               );
 
               const scaleRatio = newScale / currentScale;
@@ -5367,7 +5369,7 @@
 
           const newMatches = source
             .filter(
-              (item) => item.text && item.text.toLowerCase().includes(query)
+              (item) => item.text && item.text.toLowerCase().includes(query),
             )
             .map((item) => item.id);
 
@@ -5429,7 +5431,7 @@
             if (node) {
               const newText = node.text.replace(
                 searchState.query,
-                searchState.replaceText
+                searchState.replaceText,
               );
               updateNodeText(currentId, newText);
             }
@@ -5453,7 +5455,7 @@
                   ) {
                     const newContent = block.content.replace(
                       searchState.query,
-                      searchState.replaceText
+                      searchState.replaceText,
                     );
                     replaced = true;
                     return { ...block, content: newContent };
@@ -5483,17 +5485,17 @@
                 newNotes = notesData.map((n) =>
                   n.id === currentId
                     ? { ...n, blocks: newBlocks, text: newLegacyText }
-                    : n
+                    : n,
                 );
               }
               // Case B: Legacy Note (Old Format)
               else {
                 const newText = note.text.replace(
                   searchState.query,
-                  searchState.replaceText
+                  searchState.replaceText,
                 );
                 newNotes = notesData.map((n) =>
-                  n.id === currentId ? { ...n, text: newText } : n
+                  n.id === currentId ? { ...n, text: newText } : n,
                 );
               }
 
@@ -5522,7 +5524,7 @@
                 text: n.text
                   ? n.text.replaceAll(
                       searchState.query,
-                      searchState.replaceText
+                      searchState.replaceText,
                     )
                   : n.text,
               };
@@ -5539,7 +5541,7 @@
                       ...block,
                       content: block.content.replaceAll(
                         searchState.query,
-                        searchState.replaceText
+                        searchState.replaceText,
                       ),
                     };
                   }
@@ -5571,7 +5573,7 @@
                 text: n.text
                   ? n.text.replaceAll(
                       searchState.query,
-                      searchState.replaceText
+                      searchState.replaceText,
                     )
                   : n.text,
               };
@@ -5584,14 +5586,14 @@
 
         const handleGlobalToggle = () => {
           const anyCollapsed = nodes.some(
-            (n) => n.id !== "root" && n.isCollapsed
+            (n) => n.id !== "root" && n.isCollapsed,
           );
           let newNodes;
           if (anyCollapsed) {
             newNodes = nodes.map((n) => ({ ...n, isCollapsed: false }));
           } else {
             newNodes = nodes.map((n) =>
-              n.id === "root" ? n : { ...n, isCollapsed: true }
+              n.id === "root" ? n : { ...n, isCollapsed: true },
             );
           }
           updateNodesWithHistory(newNodes);
@@ -5612,7 +5614,7 @@
           const descendantIds = getDescendantIds(selectedNodeId, nodes);
           const branchIds = [selectedNodeId, ...descendantIds];
           const isNotFullyExpanded = nodes.some(
-            (n) => branchIds.includes(n.id) && n.isCollapsed
+            (n) => branchIds.includes(n.id) && n.isCollapsed,
           );
 
           const newNodes = nodes.map((n) => {
