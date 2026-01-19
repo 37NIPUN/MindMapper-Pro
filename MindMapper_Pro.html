@@ -1493,9 +1493,9 @@
               <span
                 key={key}
                 style={{
-                  fontSize: "0.6em",
+                  fontSize: "0.7em",
                   position: "relative",
-                  top: "-0.28em",
+                  top: "-0.3em",
                   lineHeight: "0",
                   verticalAlign: "baseline",
                 }}
@@ -2135,6 +2135,43 @@
           updateData({ colAligns: newAligns });
         };
 
+        // --- NEW: Handle KeyDown for BOLD Shortcut (Ctrl + B) ---
+        const handleTableKeyDown = (e, currentText, updateFn) => {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+            e.preventDefault();
+            const textarea = e.target;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selection = currentText.substring(start, end);
+
+            let newText;
+            let newCursorPos;
+
+            if (selection) {
+              newText =
+                currentText.substring(0, start) +
+                "**" +
+                selection +
+                "**" +
+                currentText.substring(end);
+              newCursorPos = end + 4;
+            } else {
+              newText =
+                currentText.substring(0, start) +
+                "****" +
+                currentText.substring(end);
+              newCursorPos = start + 2;
+            }
+
+            updateFn(newText);
+
+            // Restore cursor after render (needs a tiny delay for React state update)
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+            }, 0);
+          }
+        };
+
         // --- Resize Handlers ---
         const handleHeaderResizeStart = (e) => {
           if (isReadOnly || isExport) return;
@@ -2228,7 +2265,6 @@
             </div>
 
             <div className="overflow-x-auto custom-scrollbar">
-              {/* REVERTED to w-auto to restore 'Beautiful Wrapping' */}
               <table className="w-auto text-sm text-left border-collapse table-fixed">
                 <thead className="text-xs text-slate-700 bg-slate-100/50 border-b border-slate-300 relative group/header">
                   <tr
@@ -2251,9 +2287,14 @@
                                 onChange={(e) =>
                                   handleHeaderChange(idx, e.target.value)
                                 }
+                                // NEW: Pass the KeyDown handler here
+                                onKeyDown={(e) =>
+                                  handleTableKeyDown(e, header, (val) =>
+                                    handleHeaderChange(idx, val),
+                                  )
+                                }
                                 searchQuery={searchQuery}
                                 isActiveMatch={isHighlighted}
-                                // Padding-right 14 (3.5rem) to make space for the 2 buttons
                                 className={`w-full bg-transparent outline-none font-bold text-slate-700 placeholder-slate-400 p-2 min-h-[32px] resize-none overflow-hidden pr-8 ${getAlignClass(
                                   headerAligns[idx],
                                 )}`}
@@ -2286,13 +2327,12 @@
                                   <MoreOptionsIcon />
                                 </button>
 
-                                {/* COMPACT DROPDOWN MENU (Alignments + Delete) */}
+                                {/* COMPACT DROPDOWN MENU */}
                                 {activeDropdown === idx && (
                                   <div
                                     className="absolute right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-lg p-1.5 w-36 flex flex-col gap-1 cursor-default z-50 text-left"
                                     onMouseDown={(e) => e.stopPropagation()}
                                   >
-                                    {/* Header Alignment */}
                                     <div className="flex items-center gap-1">
                                       <span className="text-[9px] font-bold text-slate-400 uppercase w-3">
                                         H
@@ -2318,7 +2358,6 @@
                                       </div>
                                     </div>
 
-                                    {/* Column Alignment */}
                                     <div className="flex items-center gap-1">
                                       <span className="text-[9px] font-bold text-slate-400 uppercase w-3">
                                         C
@@ -2346,7 +2385,6 @@
 
                                     <div className="h-px bg-slate-100 my-0.5"></div>
 
-                                    {/* Delete Button (Moved Inside & Compact) */}
                                     <button
                                       onClick={() => deleteColumn(idx)}
                                       className="flex items-center justify-center gap-1.5 p-1 text-[10px] text-red-500 hover:bg-red-50 rounded w-full font-bold transition-colors"
@@ -2372,7 +2410,6 @@
                           )}
                         </div>
 
-                        {/* Col Resizer */}
                         {!isReadOnly && !isExport && (
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-10"
@@ -2392,7 +2429,6 @@
                       </th>
                     )}
                   </tr>
-                  {/* Header Height Resizer */}
                   {!isReadOnly && !isExport && (
                     <div
                       className="absolute bottom-0 left-0 right-0 h-1 cursor-row-resize hover:bg-blue-400 z-20 opacity-0 group-hover/header:opacity-100 transition-opacity"
@@ -2417,6 +2453,12 @@
                               onChange={(e) =>
                                 handleCellChange(rowIdx, colIdx, e.target.value)
                               }
+                              // NEW: Pass the KeyDown handler here too
+                              onKeyDown={(e) =>
+                                handleTableKeyDown(e, cell, (val) =>
+                                  handleCellChange(rowIdx, colIdx, val),
+                                )
+                              }
                               searchQuery={searchQuery}
                               isActiveMatch={isHighlighted}
                               className={`w-full bg-transparent outline-none text-slate-600 p-2 min-h-[36px] resize-none block ${getAlignClass(
@@ -2425,7 +2467,6 @@
                               placeholder="..."
                             />
                           ) : (
-                            // FIXED: Added min-h-[36px] for reading mode rows
                             <div
                               className={`p-2 break-words whitespace-pre-wrap min-h-[36px] ${getAlignClass(
                                 colAligns[colIdx],
