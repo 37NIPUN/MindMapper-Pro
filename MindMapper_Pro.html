@@ -1493,7 +1493,7 @@
               <span
                 key={key}
                 style={{
-                  fontSize: "0.7em",
+                  fontSize: "0.65em",
                   position: "relative",
                   top: "-0.3em",
                   lineHeight: "0",
@@ -1574,11 +1574,10 @@
       ) => {
         if (!text) return "";
 
-        // 1. HELPER: Aggressive Syntax Highlighter
+        // 1. HELPER: Aggressive Syntax Highlighter (For Code Block Content)
         const highlightSyntax = (code, lang) => {
           const baseStyle = { color: "#24292e" };
           const tokenTypes = [
-            // PRIORITY 1: RICH TEXT (Latex-like Superscript/Subscript/Bold)
             {
               type: "richtext",
               regex:
@@ -1679,13 +1678,15 @@
           });
         };
 
-        // 2. HELPER: Render a single code block
-        const renderCodeBlock = (rawBlock, key) => {
-          const isMultiLine = rawBlock.includes("\n");
+        // 2. HELPER: Render Code Block (Styled)
+        const renderCodeBlock = (rawBlock, key, isInline = false) => {
+          // Identify Block Type
+          const isTriple = rawBlock.startsWith("```");
+
           let cleanCode = rawBlock;
           let lang = null;
 
-          if (isMultiLine) {
+          if (isTriple) {
             const firstLineMatch = rawBlock.match(/^```([a-zA-Z0-9+#.-]+)?/);
             const potentialLang = firstLineMatch ? firstLineMatch[1] : null;
             const validLangs = [
@@ -1744,22 +1745,18 @@
               lang = potentialLang;
               cleanCode = rawBlock
                 .replace(/^```([a-zA-Z0-9+#.-]+)?/, "")
-                .replace(/```$/, "")
-                .replace(/^\n/, "")
-                .replace(/\n$/, "");
+                .replace(/```$/, "");
+              // Trim surrounding newlines for cleaner block display
+              if (cleanCode.startsWith("\n"))
+                cleanCode = cleanCode.substring(1);
+              if (cleanCode.endsWith("\n"))
+                cleanCode = cleanCode.substring(0, cleanCode.length - 1);
             } else {
               cleanCode = rawBlock.replace(/^```/, "").replace(/```$/, "");
             }
           } else {
-            // NEW LOGIC: Handle both triple (```) and single (`) backticks inline
-            if (rawBlock.startsWith("```")) {
-              cleanCode = rawBlock.replace(/^```/, "").replace(/```$/, "");
-            } else if (rawBlock.startsWith("`")) {
-              cleanCode = rawBlock.replace(/^`/, "").replace(/`$/, "");
-            } else {
-              // Fallback
-              cleanCode = rawBlock.replace(/^```/, "").replace(/```$/, "");
-            }
+            // Single Backtick
+            cleanCode = rawBlock.replace(/^`/, "").replace(/`$/, "");
           }
 
           const highlightedContent = highlightSyntax(cleanCode, lang);
@@ -1768,18 +1765,18 @@
             <div
               key={key}
               className={`rounded-md shadow-sm relative group overflow-hidden custom-scrollbar ${
-                isMultiLine
-                  ? "block w-fit max-w-full my-2"
-                  : "inline-block align-baseline mx-1 mb-0.5"
+                isTriple
+                  ? "block w-fit max-w-full my-2" // Block style for Triple
+                  : "inline-block align-baseline mx-1 mb-0.5" // Inline style for Single
               }`}
               style={{
                 backgroundColor: "#f6f8fa",
                 border: "1px solid #d0d7de",
                 borderRadius: "4px",
-                padding: isMultiLine ? "12px 16px" : "1px 6px 3px 6px",
+                padding: isTriple ? "12px 16px" : "1px 6px 3px 6px",
                 lineHeight: "1.45",
                 boxSizing: "border-box",
-                verticalAlign: isMultiLine ? "initial" : "middle",
+                verticalAlign: isTriple ? "initial" : "middle",
               }}
             >
               <code
@@ -1788,11 +1785,11 @@
                   fontFamily:
                     "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
                   color: "#24292e",
-                  display: isMultiLine ? "block" : "inline",
+                  display: isTriple ? "block" : "inline",
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
                   overflowWrap: "anywhere",
-                  marginBottom: isMultiLine ? "0" : "1px",
+                  marginBottom: isTriple ? "0" : "1px",
                 }}
               >
                 {highlightedContent}
@@ -1801,53 +1798,155 @@
           );
         };
 
-        // 3. LOGIC: Tokenize and Group by Lines
+        // 3. HELPER: Recursive Rich Text Parser (Handles Inline Code, Bold, Sub, Sup)
+        const parseRichText = (text, baseIndex) => {
+          if (!text) return null;
+
+          // REGEX PRIORITY: Single Backticks -> Bold -> Sub/Sup
+          // Note: `[^`\n]+` captures inline code.
+          // The split will capture the delimiters too, allowing us to identify them.
+          const regex =
+            /(`[^`\n]+`|\*\*.*?\*\*|\^\{[^}]+\}|\^[\w\d\+\-\=]|\_\{[^}]+\}|\_[\w\d\+\-\=])/g;
+          const subParts = text.split(regex);
+
+          return subParts.map((subPart, subIndex) => {
+            const key = `${baseIndex}-${subIndex}`;
+
+            // A. INLINE CODE (`...`) - No Recursion inside code
+            if (
+              subPart.startsWith("`") &&
+              subPart.endsWith("`") &&
+              subPart.length > 1
+            ) {
+              return renderCodeBlock(subPart, key, true);
+            }
+
+            // B. BOLD (**...**) - Recursive Parsing allowed inside
+            if (subPart.startsWith("**") && subPart.endsWith("**")) {
+              return (
+                <strong key={key} className="font-bold">
+                  {parseRichText(subPart.slice(2, -2), key)}
+                </strong>
+              );
+            }
+
+            // C. SUPERSCRIPT (^... or ^{...}) - Recursive + Fixed Alignment
+            if (subPart.startsWith("^")) {
+              const content = subPart.startsWith("^{")
+                ? subPart.slice(2, -1)
+                : subPart.slice(1);
+              return (
+                <span
+                  key={key}
+                  style={{
+                    fontSize: "0.75em",
+                    position: "relative",
+                    top: "-0.3em",
+                    lineHeight: "0",
+                    verticalAlign: "baseline",
+                  }}
+                >
+                  {parseRichText(content, key)}
+                </span>
+              );
+            }
+
+            // D. SUBSCRIPT (_... or _{...}) - Recursive + Fixed Alignment
+            if (subPart.startsWith("_")) {
+              const content = subPart.startsWith("_{")
+                ? subPart.slice(2, -1)
+                : subPart.slice(1);
+              return (
+                <span
+                  key={key}
+                  style={{
+                    fontSize: "0.75em",
+                    position: "relative",
+                    bottom: "-0.1em",
+                    lineHeight: "0",
+                    verticalAlign: "baseline",
+                  }}
+                >
+                  {parseRichText(content, key)}
+                </span>
+              );
+            }
+
+            // E. PLAIN TEXT
+            return <span key={key}>{subPart}</span>;
+          });
+        };
+
+        // 4. HELPER: Search Highlighting Wrapper
+        const parseStyledText = (text, searchQuery, isCurrentBlock) => {
+          if (!text) return "";
+
+          // If Search Query exists, split text by query first
+          if (searchQuery) {
+            const safeQuery = searchQuery.replace(
+              /[.*+?^${}()|[\]\\]/g,
+              "\\$&",
+            );
+            const regex = new RegExp(`(${safeQuery})`, "gi");
+            const parts = text.split(regex);
+            return parts.map((part, index) => {
+              if (part.toLowerCase() === searchQuery.toLowerCase()) {
+                const isActive = isCurrentBlock;
+                return (
+                  <mark
+                    key={index}
+                    className={`rounded px-0.5 transition-all inline-block border-b-2 ${
+                      isActive
+                        ? "bg-orange-400 text-white font-bold border-orange-600 scale-110 shadow-sm z-10 mx-0.5"
+                        : "bg-yellow-200 text-slate-800 border-yellow-400"
+                    }`}
+                  >
+                    {part}
+                  </mark>
+                );
+              }
+              return parseRichText(part, index);
+            });
+          }
+          return parseRichText(text, 0);
+        };
+
+        // 5. LOGIC: Main Split by Triple Backticks (Block Level)
         const rawParts = text.split(/(```[\s\S]*?```)/g);
         const lines = [];
         let currentLine = [];
 
-        // NEW HELPER: Parse inline text for single backticks (`code`)
-        const parseAndPush = (str) => {
-          if (!str) return;
-          // Split by single backticks, excluding newlines to be safe
-          const parts = str.split(/(`[^`\n]+`)/g);
-          parts.forEach((p) => {
-            if (!p) return;
-            if (p.startsWith("`") && p.endsWith("`") && p.length > 1) {
-              currentLine.push({ type: "code_inline", content: p });
-            } else {
-              currentLine.push({ type: "text", content: p });
-            }
-          });
-        };
-
         rawParts.forEach((part) => {
           if (part.startsWith("```") && part.endsWith("```")) {
+            // TRIPLE BACKTICK BLOCK FOUND
             const isMultiLine = part.includes("\n");
+
             if (isMultiLine) {
+              // If we have pending inline content, push it as a line first
               if (currentLine.length > 0) {
                 lines.push(currentLine);
                 currentLine = [];
               }
+              // Push the multiline block as its own dedicated line
               lines.push([{ type: "code_block", content: part }]);
             } else {
-              // Triple backticks on one line? Treat as code
-              currentLine.push({ type: "code_inline", content: part });
+              // Inline triple backtick -> Treat as regular text that will be caught by parseRichText logic (or render directly)
+              // Actually, let's treat it as a special code block to preserve the ``` visual
+              currentLine.push({ type: "code_block", content: part });
             }
           } else {
+            // TEXT PART (Contains Text, Single Backticks, Bold, etc.)
             const subLines = part.split("\n");
 
             if (subLines[0] !== "") {
-              // Modified: Use parseAndPush instead of direct push
-              parseAndPush(subLines[0]);
+              currentLine.push({ type: "text", content: subLines[0] });
             }
 
             for (let i = 1; i < subLines.length; i++) {
               lines.push(currentLine);
               currentLine = [];
               if (subLines[i] !== "") {
-                // Modified: Use parseAndPush here too
-                parseAndPush(subLines[i]);
+                currentLine.push({ type: "text", content: subLines[i] });
               }
             }
           }
@@ -1857,13 +1956,13 @@
           lines.push(currentLine);
         }
 
-        // 4. RENDER
+        // 6. RENDER
         return (
           <div className="inline-block w-full">
             {lines.map((line, lineIdx) => {
               if (line.length === 0) return <br key={lineIdx} />;
 
-              // --- HEADING DETECTION LOGIC ---
+              // HEADING LOGIC
               let isHeading = false;
               let headingLevel = 0;
               let headingContent = line;
@@ -1915,13 +2014,13 @@
               }
 
               const prevLine = lineIdx > 0 ? lines[lineIdx - 1] : null;
-              // Update prevLine check to handle indentation logic for bullets
               const isPrevBullet =
                 prevLine &&
                 prevLine.length > 0 &&
                 prevLine[0].type === "text" &&
                 prevLine[0].content.match(/^\s*(\*|-)\s/);
 
+              // CHECK FOR STANDALONE CODE BLOCK (Triple Backtick Line)
               if (line.length === 1 && line[0].type === "code_block") {
                 return (
                   <div
@@ -1933,16 +2032,14 @@
                 );
               }
 
-              // --- UPDATED BULLET LOGIC (Supports Indentation) ---
+              // BULLET LOGIC
               let isBullet = false;
               let indentLevel = 0;
 
               if (line[0].type === "text") {
-                // Match Leading Spaces (Group 1), Bullet (Group 2), Content (Group 3)
                 const match = line[0].content.match(/^(\s*)(\*|-)\s+(.*)/);
                 if (match) {
                   isBullet = true;
-                  // Calculate indent level: 2 spaces = 1 level
                   indentLevel = Math.floor(match[1].length / 2);
                 }
               }
@@ -1955,7 +2052,6 @@
                   <div
                     key={lineIdx}
                     className="flex items-start gap-2 mb-1"
-                    // Dynamic margin based on indent level
                     style={{ marginLeft: `${0.25 + indentLevel * 1.5}rem` }}
                   >
                     <span className="text-blue-500 font-bold text-lg leading-none mt-[6px]">
@@ -1981,6 +2077,7 @@
                             </span>
                           );
                         }
+                        // If Triple Backticks appeared inline (rare), render them
                         return renderCodeBlock(segment.content, segIdx);
                       })}
                     </span>
