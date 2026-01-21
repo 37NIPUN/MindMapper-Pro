@@ -4007,7 +4007,20 @@
         const calculateLayout = useCallback((currentNodes) => {
           const nodesWithMeta = currentNodes.map((node) => {
             const lines = node.text ? node.text.split("\n") : [""];
-            const textLen = Math.max(...lines.map((l) => l.length));
+
+            // FIX: Strip markdown chars to calculate visual width, otherwise **bold** adds huge padding
+            const getVisualLength = (str) => {
+              if (!str) return 0;
+              // 1. Remove Bold markers (**text** -> text)
+              let clean = str.replace(/\*\*(.*?)\*\*/g, "$1");
+              // 2. Remove Super/Sub script markers (^{text} -> text, ^t -> t)
+              clean = clean.replace(/[\^_]\{([^}]+)\}/g, "$1");
+              clean = clean.replace(/[\^_]([\w\d\+\-\=])/g, "$1");
+              return clean.length;
+            };
+
+            // Use visual length instead of raw length
+            const textLen = Math.max(...lines.map((l) => getVisualLength(l)));
             const lineCount = lines.length;
 
             const dynamicWidth = Math.max(
